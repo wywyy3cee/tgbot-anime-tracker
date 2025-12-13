@@ -1,0 +1,80 @@
+# Binary files
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Application executables
+/app
+/main
+/dist/
+/release/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# IDE directories
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Go specific files
+# Binaries
+/bin/
+/out/
+
+# Test files
+*.test
+*.out
+
+# Profiling files
+*.prof
+*.trace
+
+# Fyne specific files
+# Icon and resource cache
+fyne_cache/
+
+# Build temporary files
+*.syso
+*.h
+
+# Bundle files (if using fyne bundle)
+*-bundled.go
+
+# Dependency directories (if not using Go modules)
+/vendor/
+
+# Auto-generated files
+/assets-packr.go
+/bindata.go
+
+# Local configuration files
+config.local.*
+.env
+.env.local
+
+# Development and build artifacts
+/build/
+/target/
+
+# Log files
+*.log
+logs/
+
+# Backup files
+*.bak
+*.backup
+
+# Platform-specific binaries
+*-windows-*
+*-linux-*
+*-darwin-*
+*-android-*
+
+# Text files
+*.txt
+*.rst
