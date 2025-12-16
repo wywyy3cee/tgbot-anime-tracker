@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/wywyy3cee/tgbot-anime-tracker/internal/database"
 	"github.com/wywyy3cee/tgbot-anime-tracker/internal/shikimori"
 	"github.com/wywyy3cee/tgbot-anime-tracker/internal/telegram"
 )
@@ -14,6 +15,18 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
+
+	db, err := database.Connect(os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	if err := db.RunMigrations("./migrations"); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Database connected and migrations applied")
 
 	botToken := os.Getenv("BOT_TOKEN")
 	if botToken == "" {
