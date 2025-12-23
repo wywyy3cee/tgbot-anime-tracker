@@ -5,12 +5,14 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/wywyy3cee/tgbot-anime-tracker/internal/models"
-	"github.com/wywyy3cee/tgbot-anime-tracker/internal/shikimori"
+	"github.com/wywyy3cee/tgbot-anime-tracker/internal/service"
+	"github.com/wywyy3cee/tgbot-anime-tracker/pkg/logger"
 )
 
 type Bot struct {
-	api             *tgbotapi.BotAPI
-	shikimoriClient *shikimori.Client
+	api          *tgbotapi.BotAPI
+	animeService *service.AnimeService
+	logger       *logger.Logger
 
 	userStates map[int64]*UserState
 	mu         sync.RWMutex
@@ -21,16 +23,18 @@ type UserState struct {
 	CurrentIndex  int
 }
 
-func NewBot(token string, client *shikimori.Client) (*Bot, error) {
+func NewBot(token string, animeService *service.AnimeService, logger *logger.Logger) (*Bot, error) {
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Bot{
-		api:             api,
-		shikimoriClient: client,
-		userStates:      make(map[int64]*UserState),
+		api:          api,
+		animeService: animeService,
+		logger:       logger,
+
+		userStates: make(map[int64]*UserState),
 	}, nil
 }
 
@@ -48,11 +52,7 @@ func (b *Bot) getState(userID int64) *UserState {
 
 func (b *Bot) getCurrentAnime(userID int64) *models.Anime {
 	state := b.getState(userID)
-	if state == nil {
-		return nil
-	}
-
-	if state.CurrentIndex >= len(state.SearchResults) {
+	if state == nil || state.CurrentIndex >= len(state.SearchResults) {
 		return nil
 	}
 
@@ -68,6 +68,10 @@ func (b *Bot) Start() error {
 	for update := range updates {
 		if update.Message != nil {
 			b.handleMessage(update.Message)
+		}
+
+		if update.CallbackQuery != nil {
+			b.handleCallback(update.CallbackQuery)
 		}
 	}
 

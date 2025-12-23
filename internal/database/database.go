@@ -8,6 +8,8 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+// TODO: прикрутить на подключение бд и гуся
+
 type Database struct {
 	DB *sqlx.DB
 }

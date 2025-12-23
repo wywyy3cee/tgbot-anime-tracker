@@ -12,7 +12,7 @@ type Favorite struct {
 	ID        int       `db:"id"`
 	UserID    int64     `db:"user_id"`
 	AnimeID   int       `db:"anime_id"`
-	Title     string    `db:"title"`      // Russian или Name
-	PosterURL string    `db:"poster_url"` // Preview
+	Title     string    `db:"title"`     
+	PosterURL string    `db:"poster_url"` 
 	AddedAt   time.Time `db:"added_at"`
 }
