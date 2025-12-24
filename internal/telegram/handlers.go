@@ -16,6 +16,19 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) {
 	}
 	b.animeService.EnsureUserExists(userID, username)
 
+	state := b.getState(userID)
+	if state != nil && state.WaitingForSearch {
+		if message.Text == "Отмена" {
+			state.WaitingForSearch = false
+			b.saveState(userID, state)
+
+			msg := tgbotapi.NewMessage(chatID, "Поиск отменен.")
+			msg.ReplyMarkup = b.createMainMenuKeyboard()
+			b.api.Send(msg)
+			return
+		}
+	}
+
 	if message.IsCommand() {
 		switch message.Command() {
 		case "start":
@@ -29,6 +42,33 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) {
 			b.handleFavorites(userID, chatID)
 		}
 	}
+
+	switch message.Text {
+	case "🔍 Поиск":
+		b.handleSearchButton(userID, chatID)
+	case "❤️ Избранное":
+		b.handleFavorites(userID, chatID)
+	case "ℹ️ Помощь":
+		b.handleHelp(message)
+	default:
+		msg := tgbotapi.NewMessage(chatID, "Используй кнопки меню или команды")
+		msg.ReplyMarkup = b.createMainMenuKeyboard()
+		b.api.Send(msg)
+	}
+}
+
+func (b *Bot) handleHelp(message *tgbotapi.Message) {
+	text := "ℹ️ Справка:\n\n" +
+		"Поиск - найти аниме по названию\n" +
+		"Избранное - список сохраненных аниме\n\n" +
+		"Команды:\n" +
+		"/search <название> - поиск\n" +
+		"/next - следующее\n" +
+		"/favorites - избранное"
+
+	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	msg.ReplyMarkup = b.createMainMenuKeyboard()
+	b.api.Send(msg)
 }
 
 func (b *Bot) handleStart(message *tgbotapi.Message) {
@@ -42,18 +82,34 @@ func (b *Bot) handleStart(message *tgbotapi.Message) {
 	b.api.Send(msg)
 }
 
+func (b *Bot) handleSearchButton(userID int64, chatID int64) {
+	state := b.getState(userID)
+	if state == nil {
+		state = &UserState{}
+	}
+	state.WaitingForSearch = true
+	b.saveState(userID, state)
+
+	msg := tgbotapi.NewMessage(chatID, "Напиши название аниме для поиска:")
+	msg.ReplyMarkup = b.createCancelKeyboard()
+	b.api.Send(msg)
+}
+
 func (b *Bot) handleSearch(userID int64, chatID int64, query string) {
 	b.logger.Info("User %d searching for: %s", userID, query)
 
 	if query == "" {
 		msg := tgbotapi.NewMessage(chatID, "Укажи название. Например: /search bebop")
+		msg.ReplyMarkup = b.createMainMenuKeyboard()
 		b.api.Send(msg)
 		return
 	}
 
 	animes, err := b.animeService.SearchAnime(query)
 	if err != nil {
+		b.logger.Error("Search failed for user %d, query '%s': %v", userID, query, err)
 		msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Ошибка: %v", err))
+		msg.ReplyMarkup = b.createMainMenuKeyboard()
 		b.api.Send(msg)
 		return
 	}

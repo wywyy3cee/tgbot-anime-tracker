@@ -21,3 +21,22 @@ func (b *Bot) createAnimeKeyboard(userID int64, animeID int, isFavorite bool) tg
 }
 
 // TODO: реплай кнопки
+func (b *Bot) createMainMenuKeyboard() tgbotapi.ReplyKeyboardMarkup {
+	return tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("Поиск"),
+			tgbotapi.NewKeyboardButton("Избранное"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("Помощь"),
+		),
+	)
+}
+
+func (b *Bot) createCancelKeyboard() tgbotapi.ReplyKeyboardMarkup {
+	return tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("Отмена"),
+		),
+	)
+}

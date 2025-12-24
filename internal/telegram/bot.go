@@ -19,8 +19,9 @@ type Bot struct {
 }
 
 type UserState struct {
-	SearchResults []models.Anime
-	CurrentIndex  int
+	SearchResults    []models.Anime
+	CurrentIndex     int
+	WaitingForSearch bool
 }
 
 func NewBot(token string, animeService *service.AnimeService, logger *logger.Logger) (*Bot, error) {
