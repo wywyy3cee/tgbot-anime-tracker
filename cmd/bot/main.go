@@ -21,7 +21,7 @@ func main() {
 	}
 
 	appLogger.Info("Starting application...")
-	db, err := database.Connect(os.Getenv("DATABASE_URL"))
+	db, err := database.Connect(os.Getenv("DATABASE_URL"), appLogger)
 	if err != nil {
 		appLogger.Error("Failed to connect to database: %v", err)
 		log.Fatal(err)

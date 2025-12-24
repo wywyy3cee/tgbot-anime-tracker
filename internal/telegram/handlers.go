@@ -27,6 +27,9 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) {
 			b.api.Send(msg)
 			return
 		}
+
+		b.handleSearch(userID, chatID, message.Text)
+		return
 	}
 
 	if message.IsCommand() {
@@ -41,14 +44,15 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) {
 		case "favorites":
 			b.handleFavorites(userID, chatID)
 		}
+		return
 	}
 
 	switch message.Text {
-	case "🔍 Поиск":
+	case "Поиск":
 		b.handleSearchButton(userID, chatID)
-	case "❤️ Избранное":
+	case "Избранное":
 		b.handleFavorites(userID, chatID)
-	case "ℹ️ Помощь":
+	case "Помощь":
 		b.handleHelp(message)
 	default:
 		msg := tgbotapi.NewMessage(chatID, "Используй кнопки меню или команды")
@@ -79,6 +83,7 @@ func (b *Bot) handleStart(message *tgbotapi.Message) {
 		"/favorites - твое избранное"
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	msg.ReplyMarkup = b.createMainMenuKeyboard()
 	b.api.Send(msg)
 }
 
@@ -96,6 +101,12 @@ func (b *Bot) handleSearchButton(userID int64, chatID int64) {
 }
 
 func (b *Bot) handleSearch(userID int64, chatID int64, query string) {
+	state := b.getState(userID)
+	if state != nil {
+		state.WaitingForSearch = false
+		b.saveState(userID, state)
+	}
+
 	b.logger.Info("User %d searching for: %s", userID, query)
 
 	if query == "" {
@@ -116,7 +127,7 @@ func (b *Bot) handleSearch(userID int64, chatID int64, query string) {
 
 	b.logger.Info("Found %d animes for query '%s'", len(animes), query)
 
-	state := &UserState{
+	state = &UserState{
 		SearchResults: animes,
 		CurrentIndex:  0,
 	}
@@ -129,6 +140,7 @@ func (b *Bot) handleNext(userID int64, chatID int64) {
 	state := b.getState(userID)
 	if state == nil {
 		msg := tgbotapi.NewMessage(chatID, "Сначала сделай поиск: /search <название>")
+		msg.ReplyMarkup = b.createMainMenuKeyboard()
 		b.api.Send(msg)
 		return
 	}
@@ -137,6 +149,7 @@ func (b *Bot) handleNext(userID int64, chatID int64) {
 
 	if state.CurrentIndex >= len(state.SearchResults) {
 		msg := tgbotapi.NewMessage(chatID, "Это было последнее аниме. Начинаем сначала.")
+		msg.ReplyMarkup = b.createMainMenuKeyboard()
 		b.api.Send(msg)
 		state.CurrentIndex = 0
 	}
@@ -145,20 +158,18 @@ func (b *Bot) handleNext(userID int64, chatID int64) {
 	b.showCurrentAnime(chatID, userID)
 }
 
-// TODO:
-// 1. сделать отдельной кнопкой переключение на следующую страницу избранного,
-// 2. если делать полноценное отображение скорее всего придётся хранить данные в редисе???
-
 func (b *Bot) handleFavorites(userID int64, chatID int64) {
 	favorites, err := b.animeService.GetUserFavorites(userID)
 	if err != nil {
 		msg := tgbotapi.NewMessage(chatID, "Ошибка получения избранного")
+		msg.ReplyMarkup = b.createMainMenuKeyboard()
 		b.api.Send(msg)
 		return
 	}
 
 	if len(favorites) == 0 {
 		msg := tgbotapi.NewMessage(chatID, "Твое избранное пусто. Добавь аниме через поиск!")
+		msg.ReplyMarkup = b.createMainMenuKeyboard()
 		b.api.Send(msg)
 		return
 	}
@@ -169,6 +180,7 @@ func (b *Bot) handleFavorites(userID int64, chatID int64) {
 	}
 
 	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ReplyMarkup = b.createMainMenuKeyboard()
 	b.api.Send(msg)
 }
 
@@ -176,6 +188,7 @@ func (b *Bot) showCurrentAnime(chatID int64, userID int64) {
 	anime := b.getCurrentAnime(userID)
 	if anime == nil {
 		msg := tgbotapi.NewMessage(chatID, "Аниме не найдено")
+		msg.ReplyMarkup = b.createMainMenuKeyboard()
 		b.api.Send(msg)
 		return
 	}
@@ -189,8 +202,7 @@ func (b *Bot) showCurrentAnime(chatID int64, userID int64) {
 			"⭐ Оценка: %s\n"+
 			"📊 Статус: %s\n"+
 			"📺 Эпизодов: %d\n\n"+
-			"Показано %d из %d\n\n"+
-			"Используй /next для следующего",
+			"Показано %d из %d",
 		anime.Name,
 		anime.Russian,
 		anime.Kind,
