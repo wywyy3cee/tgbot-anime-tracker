@@ -22,6 +22,7 @@ type UserState struct {
 	SearchResults    []models.Anime
 	CurrentIndex     int
 	WaitingForSearch bool
+	FavoritesPage    int
 }
 
 func NewBot(token string, animeService *service.AnimeService, logger *logger.Logger) (*Bot, error) {
@@ -34,8 +35,7 @@ func NewBot(token string, animeService *service.AnimeService, logger *logger.Log
 		api:          api,
 		animeService: animeService,
 		logger:       logger,
-
-		userStates: make(map[int64]*UserState),
+		userStates:   make(map[int64]*UserState),
 	}, nil
 }
 

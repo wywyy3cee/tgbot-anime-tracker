@@ -2,9 +2,13 @@ package telegram
 
 import (
 	"fmt"
+	"math"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/wywyy3cee/tgbot-anime-tracker/internal/models"
 )
+
+const favoritesPerPage = 10
 
 func (b *Bot) handleMessage(message *tgbotapi.Message) {
 	userID := message.From.ID
@@ -38,9 +42,11 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) {
 			b.handleStart(message)
 		case "search":
 			query := message.CommandArguments()
-			b.handleSearch(userID, chatID, query)
-		case "next":
-			b.handleNext(userID, chatID)
+			if query != "" {
+				b.handleSearch(userID, chatID, query)
+			} else {
+				b.handleSearchButton(userID, chatID)
+			}
 		case "favorites":
 			b.handleFavorites(userID, chatID)
 		}
@@ -67,7 +73,6 @@ func (b *Bot) handleHelp(message *tgbotapi.Message) {
 		"Избранное - список сохраненных аниме\n\n" +
 		"Команды:\n" +
 		"/search <название> - поиск\n" +
-		"/next - следующее\n" +
 		"/favorites - избранное"
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
@@ -79,7 +84,6 @@ func (b *Bot) handleStart(message *tgbotapi.Message) {
 	text := "Привет! Я бот для поиска аниме.\n\n" +
 		"Команды:\n" +
 		"/search <название> - поиск аниме\n" +
-		"/next - следующее аниме из результатов\n" +
 		"/favorites - твое избранное"
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
@@ -136,29 +140,13 @@ func (b *Bot) handleSearch(userID int64, chatID int64, query string) {
 	b.showCurrentAnime(chatID, userID)
 }
 
-func (b *Bot) handleNext(userID int64, chatID int64) {
+func (b *Bot) handleFavorites(userID int64, chatID int64) {
 	state := b.getState(userID)
 	if state == nil {
-		msg := tgbotapi.NewMessage(chatID, "Сначала сделай поиск: /search <название>")
-		msg.ReplyMarkup = b.createMainMenuKeyboard()
-		b.api.Send(msg)
-		return
+		state = &UserState{FavoritesPage: 0}
+		b.saveState(userID, state)
 	}
 
-	state.CurrentIndex++
-
-	if state.CurrentIndex >= len(state.SearchResults) {
-		msg := tgbotapi.NewMessage(chatID, "Это было последнее аниме. Начинаем сначала.")
-		msg.ReplyMarkup = b.createMainMenuKeyboard()
-		b.api.Send(msg)
-		state.CurrentIndex = 0
-	}
-
-	b.saveState(userID, state)
-	b.showCurrentAnime(chatID, userID)
-}
-
-func (b *Bot) handleFavorites(userID int64, chatID int64) {
 	favorites, err := b.animeService.GetUserFavorites(userID)
 	if err != nil {
 		msg := tgbotapi.NewMessage(chatID, "Ошибка получения избранного")
@@ -174,13 +162,43 @@ func (b *Bot) handleFavorites(userID int64, chatID int64) {
 		return
 	}
 
-	text := fmt.Sprintf("❤️ Твое избранное (%d):\n\n", len(favorites))
-	for i, fav := range favorites {
-		text += fmt.Sprintf("%d. %s\n", i+1, fav.Title)
+	b.showFavoritesPage(chatID, userID, favorites)
+}
+
+func (b *Bot) showFavoritesPage(chatID int64, userID int64, favorites []models.Favorite) {
+	state := b.getState(userID)
+	if state == nil {
+		state = &UserState{FavoritesPage: 0}
+		b.saveState(userID, state)
 	}
 
+	totalPages := int(math.Ceil(float64(len(favorites)) / float64(favoritesPerPage)))
+	currentPage := state.FavoritesPage
+
+	if currentPage < 0 {
+		currentPage = 0
+	}
+	if currentPage >= totalPages {
+		currentPage = totalPages - 1
+	}
+	state.FavoritesPage = currentPage
+	b.saveState(userID, state)
+
+	start := currentPage * favoritesPerPage
+	end := start + favoritesPerPage
+	if end > len(favorites) {
+		end = len(favorites)
+	}
+
+	text := fmt.Sprintf("❤️ Твое избранное (%d):\n\n", len(favorites))
+	for i := start; i < end; i++ {
+		text += fmt.Sprintf("%d. %s\n", i+1, favorites[i].Title)
+	}
+
+	keyboard := b.createFavoritesKeyboard(currentPage, totalPages)
+
 	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ReplyMarkup = b.createMainMenuKeyboard()
+	msg.ReplyMarkup = keyboard
 	b.api.Send(msg)
 }
 
@@ -193,7 +211,6 @@ func (b *Bot) showCurrentAnime(chatID int64, userID int64) {
 		return
 	}
 
-	state := b.getState(userID)
 	isFav, _ := b.animeService.IsFavorite(userID, anime.ID)
 
 	text := fmt.Sprintf(
@@ -201,16 +218,13 @@ func (b *Bot) showCurrentAnime(chatID int64, userID int64) {
 			"📺 Тип: %s\n"+
 			"⭐ Оценка: %s\n"+
 			"📊 Статус: %s\n"+
-			"📺 Эпизодов: %d\n\n"+
-			"Показано %d из %d",
+			"📺 Эпизодов: %d",
 		anime.Name,
 		anime.Russian,
 		anime.Kind,
 		anime.Score,
 		anime.Status,
 		anime.Episodes,
-		state.CurrentIndex+1,
-		len(state.SearchResults),
 	)
 
 	if isFav {
@@ -248,6 +262,62 @@ func (b *Bot) showCurrentAnime(chatID int64, userID int64) {
 func (b *Bot) handleCallback(callback *tgbotapi.CallbackQuery) {
 	userID := callback.From.ID
 	data := callback.Data
+
+	b.logger.Debug("User %d clicked callback: %s", userID, data)
+
+	switch data {
+	case "next":
+		state := b.getState(userID)
+		if state != nil && state.CurrentIndex < len(state.SearchResults)-1 {
+			state.CurrentIndex++
+			b.saveState(userID, state)
+			b.editCurrentAnime(callback.Message.Chat.ID, callback.Message.MessageID, userID)
+		}
+		b.api.Send(tgbotapi.NewCallback(callback.ID, ""))
+		return
+
+	case "prev":
+		state := b.getState(userID)
+		if state != nil && state.CurrentIndex > 0 {
+			state.CurrentIndex--
+			b.saveState(userID, state)
+			b.editCurrentAnime(callback.Message.Chat.ID, callback.Message.MessageID, userID)
+		}
+		b.api.Send(tgbotapi.NewCallback(callback.ID, ""))
+		return
+
+	case "position":
+		b.api.Send(tgbotapi.NewCallback(callback.ID, ""))
+		return
+	case "fav_next":
+		state := b.getState(userID)
+		if state != nil {
+			state.FavoritesPage++
+			b.saveState(userID, state)
+
+			favorites, _ := b.animeService.GetUserFavorites(userID)
+			b.editFavoritesPage(callback.Message.Chat.ID, callback.Message.MessageID, userID, favorites)
+		}
+		b.api.Send(tgbotapi.NewCallback(callback.ID, ""))
+		return
+
+	case "fav_prev":
+		state := b.getState(userID)
+		if state != nil && state.FavoritesPage > 0 {
+			state.FavoritesPage--
+			b.saveState(userID, state)
+
+			favorites, _ := b.animeService.GetUserFavorites(userID)
+			b.editFavoritesPage(callback.Message.Chat.ID, callback.Message.MessageID, userID, favorites)
+		}
+		b.api.Send(tgbotapi.NewCallback(callback.ID, ""))
+		return
+
+	case "fav_page":
+		// num of page - do nothing
+		b.api.Send(tgbotapi.NewCallback(callback.ID, ""))
+		return
+	}
 
 	if len(data) > 4 && data[:4] == "fav:" {
 		animeID := 0
@@ -297,4 +367,38 @@ func (b *Bot) editCurrentAnime(chatID int64, messageID int, userID int64) {
 	b.api.Send(deleteMsg)
 
 	b.showCurrentAnime(chatID, userID)
+}
+
+func (b *Bot) editFavoritesPage(chatID int64, messageID int, userID int64, favorites []models.Favorite) {
+	state := b.getState(userID)
+	if state == nil {
+		return
+	}
+
+	totalPages := int(math.Ceil(float64(len(favorites)) / float64(favoritesPerPage)))
+	currentPage := state.FavoritesPage
+
+	if currentPage < 0 {
+		currentPage = 0
+	}
+	if currentPage >= totalPages {
+		currentPage = totalPages - 1
+	}
+
+	start := currentPage * favoritesPerPage
+	end := start + favoritesPerPage
+	if end > len(favorites) {
+		end = len(favorites)
+	}
+
+	text := fmt.Sprintf("❤️ Твое избранное (%d):\n\n", len(favorites))
+	for i := start; i < end; i++ {
+		text += fmt.Sprintf("%d. %s\n", i+1, favorites[i].Title)
+	}
+
+	keyboard := b.createFavoritesKeyboard(currentPage, totalPages)
+
+	edit := tgbotapi.NewEditMessageText(chatID, messageID, text)
+	edit.ReplyMarkup = &keyboard
+	b.api.Send(edit)
 }

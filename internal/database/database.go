@@ -6,15 +6,19 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
+	"github.com/wywyy3cee/tgbot-anime-tracker/pkg/logger"
 )
 
 // TODO: прикрутить на подключение бд и гуся
 
 type Database struct {
-	DB *sqlx.DB
+	DB     *sqlx.DB
+	logger *logger.Logger
 }
 
-func Connect(databaseURL string) (*Database, error) {
+func Connect(databaseURL string, logger *logger.Logger) (*Database, error) {
+	logger.Info("Connecting to database...")
+
 	db, err := sqlx.Connect("postgres", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
@@ -24,7 +28,12 @@ func Connect(databaseURL string) (*Database, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &Database{DB: db}, nil
+	logger.Info("Database connection established")
+
+	return &Database{
+		DB:     db,
+		logger: logger,
+	}, nil
 }
 
 func (d *Database) RunMigrations(migrationsDir string) error {
