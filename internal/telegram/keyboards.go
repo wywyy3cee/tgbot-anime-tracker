@@ -16,14 +16,13 @@ func (b *Bot) createAnimeKeyboard(userID int64, animeID int, isFavorite bool) tg
 	var buttons [][]tgbotapi.InlineKeyboardButton
 
 	if len(state.SearchResults) > 1 {
-		navRow := []tgbotapi.InlineKeyboardButton{}
-		if state.CurrentIndex > 0 {
-			navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("⬅️", "prev"))
-		}
-		positionText := fmt.Sprintf(" %d/%d ", state.CurrentIndex+1, len(state.SearchResults))
-		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData(positionText, "position"))
-		if state.CurrentIndex < len(state.SearchResults)-1 {
-			navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("➡️", "next"))
+		navRow := []tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardButtonData("⬅️", "prev"),
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("%d/%d", state.CurrentIndex+1, len(state.SearchResults)),
+				"position",
+			),
+			tgbotapi.NewInlineKeyboardButtonData("➡️", "next"),
 		}
 		buttons = append(buttons, navRow)
 	}

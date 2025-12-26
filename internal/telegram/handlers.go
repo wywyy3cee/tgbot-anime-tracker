@@ -270,6 +270,9 @@ func (b *Bot) handleCallback(callback *tgbotapi.CallbackQuery) {
 		state := b.getState(userID)
 		if state != nil && state.CurrentIndex < len(state.SearchResults)-1 {
 			state.CurrentIndex++
+			if state.CurrentIndex >= len(state.SearchResults) {
+				state.CurrentIndex = 0
+			}
 			b.saveState(userID, state)
 			b.editCurrentAnime(callback.Message.Chat.ID, callback.Message.MessageID, userID)
 		}
@@ -280,6 +283,9 @@ func (b *Bot) handleCallback(callback *tgbotapi.CallbackQuery) {
 		state := b.getState(userID)
 		if state != nil && state.CurrentIndex > 0 {
 			state.CurrentIndex--
+			if state.CurrentIndex < 0 {
+				state.CurrentIndex = len(state.SearchResults) - 1
+			}
 			b.saveState(userID, state)
 			b.editCurrentAnime(callback.Message.Chat.ID, callback.Message.MessageID, userID)
 		}
