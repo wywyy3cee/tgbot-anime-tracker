@@ -2,9 +2,10 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/wywyy3cee/tgbot-anime-tracker/internal/cache"
+	"github.com/wywyy3cee/tgbot-anime-tracker/internal/config"
 	"github.com/wywyy3cee/tgbot-anime-tracker/internal/database"
 	"github.com/wywyy3cee/tgbot-anime-tracker/internal/service"
 	"github.com/wywyy3cee/tgbot-anime-tracker/internal/shikimori"
@@ -20,8 +21,14 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
+	cfg, err := config.Load()
+	if err != nil {
+		appLogger.Error("Failed to load config: %v", err)
+		log.Fatal(err)
+	}
+
 	appLogger.Info("Starting application...")
-	db, err := database.Connect(os.Getenv("DATABASE_URL"), appLogger)
+	db, err := database.Connect(cfg.DatabaseURL, appLogger)
 	if err != nil {
 		appLogger.Error("Failed to connect to database: %v", err)
 		log.Fatal(err)
@@ -37,17 +44,18 @@ func main() {
 
 	log.Println("Database connected and migrations applied")
 
-	repo := database.NewRepository(db)
-	shikiClient := shikimori.NewClient("https://shikimori.one/api")
-	animeService := service.NewAnimeService(shikiClient, repo)
-
-	botToken := os.Getenv("BOT_TOKEN")
-	if botToken == "" {
-		appLogger.Error("BOT_TOKEN not found")
-		log.Fatal("BOT_TOKEN not found in environment variables")
+	redisCache, err := cache.New(cfg.RedisURL, appLogger)
+	if err != nil {
+		appLogger.Error("Failed to connect to redis: %v", err)
+		log.Fatal(err)
 	}
+	defer redisCache.Close()
 
-	bot, err := telegram.NewBot(botToken, animeService, appLogger)
+	repo := database.NewRepository(db)
+	shikiClient := shikimori.NewClient(cfg.ShikimoriURL)
+	animeService := service.NewAnimeService(shikiClient, repo, redisCache)
+
+	bot, err := telegram.NewBot(cfg.BotToken, animeService, appLogger)
 	if err != nil {
 		appLogger.Error("Failed to create bot: %v", err)
 		log.Fatal("Failed to create bot:", err)
