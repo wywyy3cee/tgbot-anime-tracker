@@ -37,11 +37,25 @@ func (s *AnimeService) SearchAnime(query string) ([]models.Anime, error) {
 		return nil, fmt.Errorf("failed to search anime: %w", err)
 	}
 
+	enrichedAnimes := s.enrichSearchResults(animes)
+
 	if s.cache != nil {
-		_ = s.cache.SetAnimeSearch(query, animes, time.Hour)
+		_ = s.cache.SetAnimeSearch(query, enrichedAnimes, time.Hour)
 	}
 
-	return animes, nil
+	return enrichedAnimes, nil
+}
+
+func (s *AnimeService) enrichSearchResults(animes []models.Anime) []models.Anime {
+	for i := range animes {
+		if animes[i].Description == "" {
+			fullAnime, err := s.GetAnimeByID(animes[i].ID)
+			if err == nil && fullAnime != nil {
+				animes[i] = *fullAnime
+			}
+		}
+	}
+	return animes
 }
 
 func (s *AnimeService) GetAnimeByID(id int) (*models.Anime, error) {

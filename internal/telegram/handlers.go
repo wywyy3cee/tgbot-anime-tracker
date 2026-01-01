@@ -6,6 +6,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/wywyy3cee/tgbot-anime-tracker/internal/models"
+	"github.com/wywyy3cee/tgbot-anime-tracker/pkg/utils"
 )
 
 const favoritesPerPage = 10
@@ -203,29 +204,7 @@ func (b *Bot) showCurrentAnime(chatID int64, userID int64) {
 	}
 
 	isFav, _ := b.animeService.IsFavorite(userID, anime.ID)
-
-	text := fmt.Sprintf(
-		"🎬 *%s*\n%s\n\n"+
-			"📺 Тип: %s\n"+
-			"⭐ Оценка: %s\n"+
-			"📊 Статус: %s\n"+
-			"📺 Эпизодов: %d",
-		anime.Name,
-		anime.Russian,
-		anime.Kind,
-		anime.Score,
-		anime.Status,
-		anime.Episodes,
-	)
-
-	if isFav {
-		text += "\n\n💚 В избранном"
-	}
-
-	if len(text) > 1024 {
-		text = text[:1021] + "..."
-	}
-
+	text := utils.FormatAnimeMessage(anime, isFav)
 	keyboard := b.createAnimeKeyboard(userID, anime.ID, isFav)
 
 	if anime.Image.Original != "" || anime.Image.Preview != "" {
@@ -241,12 +220,16 @@ func (b *Bot) showCurrentAnime(chatID int64, userID int64) {
 		photo.Caption = text
 		photo.ParseMode = "Markdown"
 		photo.ReplyMarkup = keyboard
-		b.api.Send(photo)
+		if _, err := b.api.Send(photo); err != nil {
+			b.logger.Error("Failed to send photo for anime ID %d: %v", anime.ID, err)
+		}
 	} else {
 		msg := tgbotapi.NewMessage(chatID, text)
 		msg.ParseMode = "Markdown"
 		msg.ReplyMarkup = keyboard
-		b.api.Send(msg)
+		if _, err := b.api.Send(msg); err != nil {
+			b.logger.Error("Failed to send message for anime ID %d: %v", anime.ID, err)
+		}
 	}
 }
 
@@ -439,25 +422,8 @@ func (b *Bot) showFavoriteAnime(chatID int64, userID int64, animeID int) {
 		return
 	}
 
-	text := fmt.Sprintf(
-		"🎬 *%s*\n%s\n\n"+
-			"📺 Тип: %s\n"+
-			"⭐ Оценка: %s\n"+
-			"📊 Статус: %s\n"+
-			"📺 Эпизодов: %d\n\n"+
-			"💚 В избранном",
-		anime.Name,
-		anime.Russian,
-		anime.Kind,
-		anime.Score,
-		anime.Status,
-		anime.Episodes,
-	)
-
-	if len(text) > 1024 {
-		text = text[:1021] + "..."
-	}
-
+	isFav := true
+	text := utils.FormatAnimeMessage(anime, isFav)
 	keyboard := b.createFavoriteAnimeKeyboard(animeID)
 
 	if anime.Image.Original != "" || anime.Image.Preview != "" {
@@ -473,11 +439,15 @@ func (b *Bot) showFavoriteAnime(chatID int64, userID int64, animeID int) {
 		photo.Caption = text
 		photo.ParseMode = "Markdown"
 		photo.ReplyMarkup = keyboard
-		b.api.Send(photo)
+		if _, err := b.api.Send(photo); err != nil {
+			b.logger.Error("Failed to send photo for anime ID %d: %v", anime.ID, err)
+		}
 	} else {
 		msg := tgbotapi.NewMessage(chatID, text)
 		msg.ParseMode = "Markdown"
 		msg.ReplyMarkup = keyboard
-		b.api.Send(msg)
+		if _, err := b.api.Send(msg); err != nil {
+			b.logger.Error("Failed to send message for anime ID %d: %v", anime.ID, err)
+		}
 	}
 }
