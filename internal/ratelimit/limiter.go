@@ -7,9 +7,9 @@ import (
 )
 
 type RateLimiter struct {
-	tokens     int // current available tokens
+	tokens     int
 	maxTokens  int
-	refillRate time.Duration // how often to add a token
+	refillRate time.Duration
 	mu         sync.Mutex
 }
 

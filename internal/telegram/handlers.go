@@ -204,8 +204,10 @@ func (b *Bot) showCurrentAnime(chatID int64, userID int64) {
 	}
 
 	isFav, _ := b.animeService.IsFavorite(userID, anime.ID)
-	text := utils.FormatAnimeMessage(anime, isFav)
-	keyboard := b.createAnimeKeyboard(userID, anime.ID, isFav)
+	userRating, _ := b.animeService.GetUserRating(userID, anime.ID)
+
+	text := utils.FormatAnimeMessageWithRating(anime, isFav, userRating)
+	keyboard := b.createAnimeKeyboard(userID, anime.ID, isFav, userRating)
 
 	if anime.Image.Original != "" || anime.Image.Preview != "" {
 		baseURL := "https://shikimori.one"
@@ -238,6 +240,63 @@ func (b *Bot) handleCallback(callback *tgbotapi.CallbackQuery) {
 	data := callback.Data
 
 	b.logger.Debug("User %d clicked callback: %s", userID, data)
+
+	if len(data) > 5 && data[:5] == "rate:" {
+		animeID := 0
+		fmt.Sscanf(data, "rate:%d", &animeID)
+
+		state := b.getState(userID)
+		if state == nil {
+			state = &UserState{}
+		}
+		state.RatingAnimeID = animeID
+		state.WaitingForRating = true
+		b.saveState(userID, state)
+
+		keyboard := b.createRatingKeyboard(animeID)
+
+		edit := tgbotapi.NewEditMessageReplyMarkup(
+			callback.Message.Chat.ID,
+			callback.Message.MessageID,
+			keyboard,
+		)
+		b.api.Send(edit)
+		b.api.Send(tgbotapi.NewCallback(callback.ID, "Выбери оценку от 1 до 10"))
+		return
+	}
+
+	if len(data) > 7 && data[:7] == "rating:" {
+		animeID := 0
+		score := 0
+		fmt.Sscanf(data, "rating:%d:%d", &animeID, &score)
+
+		err := b.animeService.AddRating(userID, animeID, score)
+		if err != nil {
+			b.logger.Error("Failed to add rating: %v", err)
+			b.api.Send(tgbotapi.NewCallback(callback.ID, "Ошибка при сохранении оценки"))
+			return
+		}
+
+		b.logger.Info("User %d rated anime %d with score %d", userID, animeID, score)
+		b.api.Send(tgbotapi.NewCallback(callback.ID, fmt.Sprintf("✅ Оценка %d сохранена", score)))
+
+		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+		b.api.Send(deleteMsg)
+
+		state := b.getState(userID)
+		if state != nil {
+			state.WaitingForRating = false
+			state.RatingAnimeID = 0
+			b.saveState(userID, state)
+
+			if len(state.SearchResults) > 0 {
+				b.showCurrentAnime(callback.Message.Chat.ID, userID)
+			} else {
+				b.showFavoriteAnime(callback.Message.Chat.ID, userID, animeID)
+			}
+		}
+		return
+	}
 
 	switch data {
 	case "next":
@@ -303,6 +362,26 @@ func (b *Bot) handleCallback(callback *tgbotapi.CallbackQuery) {
 		b.api.Send(deleteMsg)
 		b.handleFavorites(userID, callback.Message.Chat.ID)
 		b.api.Send(tgbotapi.NewCallback(callback.ID, ""))
+		return
+
+	case "cancel_rating":
+		state := b.getState(userID)
+		if state != nil {
+			state.WaitingForRating = false
+			animeID := state.RatingAnimeID
+			state.RatingAnimeID = 0
+			b.saveState(userID, state)
+
+			deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+			b.api.Send(deleteMsg)
+
+			if len(state.SearchResults) > 0 {
+				b.showCurrentAnime(callback.Message.Chat.ID, userID)
+			} else {
+				b.showFavoriteAnime(callback.Message.Chat.ID, userID, animeID)
+			}
+		}
+		b.api.Send(tgbotapi.NewCallback(callback.ID, "Отменено"))
 		return
 	}
 
@@ -423,8 +502,10 @@ func (b *Bot) showFavoriteAnime(chatID int64, userID int64, animeID int) {
 	}
 
 	isFav := true
-	text := utils.FormatAnimeMessage(anime, isFav)
-	keyboard := b.createFavoriteAnimeKeyboard(animeID)
+	userRating, _ := b.animeService.GetUserRating(userID, animeID)
+
+	text := utils.FormatAnimeMessageWithRating(anime, isFav, userRating)
+	keyboard := b.createFavoriteAnimeKeyboard(animeID, userRating)
 
 	if anime.Image.Original != "" || anime.Image.Preview != "" {
 		baseURL := "https://shikimori.one"

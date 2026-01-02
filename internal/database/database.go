@@ -9,8 +9,6 @@ import (
 	"github.com/wywyy3cee/tgbot-anime-tracker/pkg/logger"
 )
 
-// TODO: прикрутить на подключение бд и гуся
-
 type Database struct {
 	DB     *sqlx.DB
 	logger *logger.Logger

@@ -40,7 +40,6 @@ func EscapeMarkdown(text string) string {
 	).Replace(result)
 
 	result = removeJapaneseCharacters(result)
-
 	result = removeBracketContent(result)
 
 	return strings.TrimSpace(result)
@@ -78,8 +77,30 @@ func removeBracketContent(text string) string {
 	return result
 }
 
+func FormatGenres(genres []models.Genre) string {
+	if len(genres) == 0 {
+		return "нет"
+	}
+
+	maxGenres := 4
+	if len(genres) < maxGenres {
+		maxGenres = len(genres)
+	}
+
+	genreNames := make([]string, 0, maxGenres)
+	for i := 0; i < maxGenres; i++ {
+		genreName := genres[i].Russian
+		if genreName == "" {
+			genreName = genres[i].Name
+		}
+		genreNames = append(genreNames, genreName)
+	}
+
+	return strings.Join(genreNames, ", ")
+}
+
 func FormatAnimeMessage(anime *models.Anime, isFav bool) string {
-	description := TruncateTextWithEllipsis(anime.Description, 1024)
+	description := TruncateTextWithEllipsis(anime.Description, 800)
 	description = SanitizeUTF8(description)
 	description = EscapeMarkdown(description)
 	descText := description
@@ -92,10 +113,12 @@ func FormatAnimeMessage(anime *models.Anime, isFav bool) string {
 	kind := EscapeMarkdown(anime.Kind)
 	score := EscapeMarkdown(anime.Score)
 	status := EscapeMarkdown(anime.Status)
+	genres := EscapeMarkdown(FormatGenres(anime.Genres))
 
 	text := fmt.Sprintf(
 		"🎬 %s\n%s\n\n"+
 			"📺 Тип: %s\n"+
+			"🎭 Жанр: %s\n"+
 			"⭐ Оценка: %s\n"+
 			"📊 Статус: %s\n"+
 			"📺 Эпизодов: %d\n\n"+
@@ -103,6 +126,7 @@ func FormatAnimeMessage(anime *models.Anime, isFav bool) string {
 		name,
 		russian,
 		kind,
+		genres,
 		score,
 		status,
 		anime.Episodes,
@@ -111,5 +135,50 @@ func FormatAnimeMessage(anime *models.Anime, isFav bool) string {
 	if isFav {
 		text += "\n\n💚 В избранном"
 	}
+	return text
+}
+
+func FormatAnimeMessageWithRating(anime *models.Anime, isFav bool, userRating *models.Rating) string {
+	description := TruncateTextWithEllipsis(anime.Description, 750)
+	description = SanitizeUTF8(description)
+	description = EscapeMarkdown(description)
+	descText := description
+	if len(descText) == 0 {
+		descText = "нет"
+	}
+
+	name := EscapeMarkdown(anime.Name)
+	russian := EscapeMarkdown(anime.Russian)
+	kind := EscapeMarkdown(anime.Kind)
+	score := EscapeMarkdown(anime.Score)
+	status := EscapeMarkdown(anime.Status)
+	genres := EscapeMarkdown(FormatGenres(anime.Genres))
+
+	text := fmt.Sprintf(
+		"🎬 %s\n%s\n\n"+
+			"📺 Тип: %s\n"+
+			"🎭 Жанр: %s\n"+
+			"⭐ Общая оценка: %s\n"+
+			"📊 Статус: %s\n"+
+			"📺 Эпизодов: %d\n\n"+
+			"Описание: %s",
+		name,
+		russian,
+		kind,
+		genres,
+		score,
+		status,
+		anime.Episodes,
+		descText,
+	)
+
+	if userRating != nil {
+		text += fmt.Sprintf("\n\n⭐ Твоя оценка: %d", userRating.Score)
+	}
+
+	if isFav {
+		text += "\n💚 В избранном"
+	}
+
 	return text
 }

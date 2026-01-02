@@ -104,3 +104,43 @@ func (r *Repository) CountFavorites(userID int64) (int, error) {
 	}
 	return count, nil
 }
+
+func (r *Repository) AddRating(rating models.Rating) error {
+	query := `
+		INSERT INTO ratings (user_id, anime_id, score, rated_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (user_id, anime_id) 
+		DO UPDATE SET score = EXCLUDED.score, rated_at = EXCLUDED.rated_at
+	`
+	_, err := r.db.DB.Exec(query,
+		rating.UserID,
+		rating.AnimeID,
+		rating.Score,
+		rating.RatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to add rating: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) GetRating(userID int64, animeID int) (*models.Rating, error) {
+	var rating models.Rating
+	query := `SELECT id, user_id, anime_id, score, rated_at FROM ratings WHERE user_id = $1 AND anime_id = $2`
+
+	err := r.db.DB.Get(&rating, query, userID, animeID)
+	if err != nil {
+		return nil, nil
+	}
+	return &rating, nil
+}
+
+func (r *Repository) DeleteRating(userID int64, animeID int) error {
+	query := `DELETE FROM ratings WHERE user_id = $1 AND anime_id = $2`
+
+	_, err := r.db.DB.Exec(query, userID, animeID)
+	if err != nil {
+		return fmt.Errorf("failed to delete rating: %w", err)
+	}
+	return nil
+}

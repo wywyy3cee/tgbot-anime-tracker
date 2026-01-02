@@ -7,8 +7,8 @@ import (
 	"github.com/wywyy3cee/tgbot-anime-tracker/internal/models"
 )
 
-// inline button's search
-func (b *Bot) createAnimeKeyboard(userID int64, animeID int, isFavorite bool) tgbotapi.InlineKeyboardMarkup {
+// inline keyboards
+func (b *Bot) createAnimeKeyboard(userID int64, animeID int, isFavorite bool, userRating *models.Rating) tgbotapi.InlineKeyboardMarkup {
 	state := b.getState(userID)
 	if state == nil {
 		return tgbotapi.NewInlineKeyboardMarkup()
@@ -28,18 +28,53 @@ func (b *Bot) createAnimeKeyboard(userID int64, animeID int, isFavorite bool) tg
 		buttons = append(buttons, navRow)
 	}
 
+	actionRow := []tgbotapi.InlineKeyboardButton{}
+
 	if isFavorite {
-		unfavBtn := tgbotapi.NewInlineKeyboardButtonData("💔 Удалить из избранного", fmt.Sprintf("unfav:%d", animeID))
-		buttons = append(buttons, []tgbotapi.InlineKeyboardButton{unfavBtn})
+		actionRow = append(actionRow, tgbotapi.NewInlineKeyboardButtonData("💔 Удалить", fmt.Sprintf("unfav:%d", animeID)))
 	} else {
-		favBtn := tgbotapi.NewInlineKeyboardButtonData("❤️ Добавить в избранное", fmt.Sprintf("fav:%d", animeID))
-		buttons = append(buttons, []tgbotapi.InlineKeyboardButton{favBtn})
+		actionRow = append(actionRow, tgbotapi.NewInlineKeyboardButtonData("❤️ Добавить", fmt.Sprintf("fav:%d", animeID)))
 	}
+
+	ratingText := "⭐ Оценить"
+	if userRating != nil {
+		ratingText = fmt.Sprintf("⭐ Оценка: %d", userRating.Score)
+	}
+	actionRow = append(actionRow, tgbotapi.NewInlineKeyboardButtonData(ratingText, fmt.Sprintf("rate:%d", animeID)))
+
+	buttons = append(buttons, actionRow)
 
 	return tgbotapi.NewInlineKeyboardMarkup(buttons...)
 }
 
-// inline button's favourites
+func (b *Bot) createRatingKeyboard(animeID int) tgbotapi.InlineKeyboardMarkup {
+	var buttons [][]tgbotapi.InlineKeyboardButton
+
+	row1 := []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonData("1", fmt.Sprintf("rating:%d:1", animeID)),
+		tgbotapi.NewInlineKeyboardButtonData("2", fmt.Sprintf("rating:%d:2", animeID)),
+		tgbotapi.NewInlineKeyboardButtonData("3", fmt.Sprintf("rating:%d:3", animeID)),
+		tgbotapi.NewInlineKeyboardButtonData("4", fmt.Sprintf("rating:%d:4", animeID)),
+		tgbotapi.NewInlineKeyboardButtonData("5", fmt.Sprintf("rating:%d:5", animeID)),
+	}
+
+	row2 := []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonData("6", fmt.Sprintf("rating:%d:6", animeID)),
+		tgbotapi.NewInlineKeyboardButtonData("7", fmt.Sprintf("rating:%d:7", animeID)),
+		tgbotapi.NewInlineKeyboardButtonData("8", fmt.Sprintf("rating:%d:8", animeID)),
+		tgbotapi.NewInlineKeyboardButtonData("9", fmt.Sprintf("rating:%d:9", animeID)),
+		tgbotapi.NewInlineKeyboardButtonData("10", fmt.Sprintf("rating:%d:10", animeID)),
+	}
+
+	cancelRow := []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonData("❌ Отмена", "cancel_rating"),
+	}
+
+	buttons = append(buttons, row1, row2, cancelRow)
+
+	return tgbotapi.NewInlineKeyboardMarkup(buttons...)
+}
+
 func (b *Bot) createFavoritesKeyboard(favorites []models.Favorite, currentPage, totalPages int) tgbotapi.InlineKeyboardMarkup {
 	var buttons [][]tgbotapi.InlineKeyboardButton
 
@@ -81,19 +116,32 @@ func (b *Bot) createFavoritesKeyboard(favorites []models.Favorite, currentPage, 
 	return tgbotapi.NewInlineKeyboardMarkup(buttons...)
 }
 
-func (b *Bot) createFavoriteAnimeKeyboard(animeID int) tgbotapi.InlineKeyboardMarkup {
-	buttons := [][]tgbotapi.InlineKeyboardButton{
-		{
-			tgbotapi.NewInlineKeyboardButtonData("🗑️ Удалить из избранного", fmt.Sprintf("del_fav:%d", animeID)),
-		},
-		{
-			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад к списку", "back_to_favs"),
-		},
+func (b *Bot) createFavoriteAnimeKeyboard(animeID int, userRating *models.Rating) tgbotapi.InlineKeyboardMarkup {
+	var buttons [][]tgbotapi.InlineKeyboardButton
+
+	deleteRow := []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonData("🗑️ Удалить из избранного", fmt.Sprintf("del_fav:%d", animeID)),
 	}
+	buttons = append(buttons, deleteRow)
+
+	ratingText := "⭐ Оценить"
+	if userRating != nil {
+		ratingText = fmt.Sprintf("⭐ Оценка: %d", userRating.Score)
+	}
+	ratingRow := []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonData(ratingText, fmt.Sprintf("rate:%d", animeID)),
+	}
+	buttons = append(buttons, ratingRow)
+
+	backRow := []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад к списку", "back_to_favs"),
+	}
+	buttons = append(buttons, backRow)
+
 	return tgbotapi.NewInlineKeyboardMarkup(buttons...)
 }
 
-// reply button's main menu
+// reply keyboards
 func (b *Bot) createMainMenuKeyboard() tgbotapi.ReplyKeyboardMarkup {
 	return tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(

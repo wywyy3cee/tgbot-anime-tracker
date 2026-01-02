@@ -23,6 +23,8 @@ type UserState struct {
 	CurrentIndex     int
 	WaitingForSearch bool
 	FavoritesPage    int
+	RatingAnimeID    int
+	WaitingForRating bool
 }
 
 func NewBot(token string, animeService *service.AnimeService, logger *logger.Logger) (*Bot, error) {

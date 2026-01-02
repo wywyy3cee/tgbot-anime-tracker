@@ -11,9 +11,21 @@ import (
 )
 
 type AnimeService struct {
-	shikimoriClient *shikimori.Client
+	shikimoriClient shikimoriClientInterface
 	repository      *database.Repository
-	cache           *cache.Cache
+	cache           cacheInterface
+}
+
+type shikimoriClientInterface interface {
+	SearchAnime(query string, limit int) ([]models.Anime, error)
+	GetAnimeById(id int) (*models.Anime, error)
+}
+
+type cacheInterface interface {
+	GetAnimeSearch(query string) ([]models.Anime, error)
+	SetAnimeSearch(query string, animes []models.Anime, duration time.Duration) error
+	GetAnimeDetails(id int) (*models.Anime, error)
+	SetAnimeDetails(id int, anime *models.Anime, duration time.Duration) error
 }
 
 func NewAnimeService(client *shikimori.Client, repo *database.Repository, cache *cache.Cache) *AnimeService {
@@ -123,4 +135,27 @@ func (s *AnimeService) EnsureUserExists(userID int64, username string) error {
 		CreatedAt: time.Now(),
 	}
 	return s.repository.CreateUser(user)
+}
+
+func (s *AnimeService) AddRating(userID int64, animeID int, score int) error {
+	if score < 1 || score > 10 {
+		return fmt.Errorf("score must be between 1 and 10")
+	}
+
+	rating := models.Rating{
+		UserID:  userID,
+		AnimeID: animeID,
+		Score:   score,
+		RatedAt: time.Now(),
+	}
+
+	return s.repository.AddRating(rating)
+}
+
+func (s *AnimeService) GetUserRating(userID int64, animeID int) (*models.Rating, error) {
+	return s.repository.GetRating(userID, animeID)
+}
+
+func (s *AnimeService) DeleteRating(userID int64, animeID int) error {
+	return s.repository.DeleteRating(userID, animeID)
 }
