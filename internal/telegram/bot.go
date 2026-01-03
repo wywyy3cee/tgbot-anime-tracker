@@ -41,6 +41,25 @@ func NewBot(token string, animeService *service.AnimeService, logger *logger.Log
 	}, nil
 }
 
+func NewBotWithAPI(api *tgbotapi.BotAPI, animeService *service.AnimeService, logger *logger.Logger) (*Bot, error) {
+	return &Bot{
+		api:          api,
+		animeService: animeService,
+		logger:       logger,
+		userStates:   make(map[int64]*UserState),
+	}, nil
+}
+
+func (b *Bot) HandleUpdate(update *tgbotapi.Update) {
+	if update.Message != nil {
+		b.handleMessage(update.Message)
+	}
+
+	if update.CallbackQuery != nil {
+		b.handleCallback(update.CallbackQuery)
+	}
+}
+
 func (b *Bot) saveState(userID int64, state *UserState) {
 	b.mu.Lock()
 	defer b.mu.Unlock()

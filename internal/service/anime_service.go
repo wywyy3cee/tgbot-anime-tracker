@@ -36,6 +36,10 @@ func NewAnimeService(client *shikimori.Client, repo *database.Repository, cache 
 	}
 }
 
+func (s *AnimeService) SetShikimoriClient(client shikimoriClientInterface) {
+	s.shikimoriClient = client
+}
+
 func (s *AnimeService) SearchAnime(query string) ([]models.Anime, error) {
 	if s.cache != nil {
 		cached, err := s.cache.GetAnimeSearch(query)

@@ -224,6 +224,12 @@ func (b *Bot) showCurrentAnime(chatID int64, userID int64) {
 		photo.ReplyMarkup = keyboard
 		if _, err := b.api.Send(photo); err != nil {
 			b.logger.Error("Failed to send photo for anime ID %d: %v", anime.ID, err)
+			msg := tgbotapi.NewMessage(chatID, text+"\n\n⚠️ Изображение недоступно")
+			msg.ParseMode = "Markdown"
+			msg.ReplyMarkup = keyboard
+			if _, err := b.api.Send(msg); err != nil {
+				b.logger.Error("Failed to send fallback message: %v", err)
+			}
 		}
 	} else {
 		msg := tgbotapi.NewMessage(chatID, text)
