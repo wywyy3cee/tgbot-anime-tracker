@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+    command: postgres -c log_connections=on
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+    command: redis-server --bind 0.0.0.0 --protected-mode no
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/anime_bot_test?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      TEST_MIGRATIONS_DIR: /app/migrations
+      TEST_REDIS_HOST: redis
+      TEST_DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: >
+      sh -c "
+        echo '=== Creating test database ===' &&
+        PGPASSWORD=postgres psql -h db -U postgres -d postgres -c 'DROP DATABASE IF EXISTS anime_bot_test;' &&
+        PGPASSWORD=postgres psql -h db -U postgres -d postgres -c 'CREATE DATABASE anime_bot_test;' &&
+        echo '=== Test database created ===' &&
+        sleep 2 &&
+        echo '=== Running E2E tests ===' &&
+        go test ./tests/e2e/... -v -count=1 -timeout 5m
+      "

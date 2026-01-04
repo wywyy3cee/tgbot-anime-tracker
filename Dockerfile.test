@@ -1,0 +1,12 @@
+FROM golang:1.25-alpine
+
+RUN apk add --no-cache git postgresql-client
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+CMD ["sh"]
