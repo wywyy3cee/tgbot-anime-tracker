@@ -7,21 +7,46 @@ import (
 )
 
 type MockTelegramBot struct {
-	API              *tgbotapi.BotAPI
-	sentMessages     []tgbotapi.MessageConfig
-	sentCallbacks    []tgbotapi.CallbackConfig
-	mu               sync.RWMutex
-	messageCounter   int
-	updatesChan      chan tgbotapi.Update
+	API            *tgbotapi.BotAPI
+	sentMessages   []tgbotapi.MessageConfig
+	sentCallbacks  []tgbotapi.CallbackConfig
+	mu             sync.RWMutex
+	messageCounter int
+	updatesChan    chan tgbotapi.Update
 }
 
 func NewMockTelegramBot() *MockTelegramBot {
+	api := &tgbotapi.BotAPI{}
+	api.Self = tgbotapi.User{
+		ID:        1,
+		UserName:  "test_bot",
+		FirstName: "Test",
+		IsBot:     true,
+	}
+
 	return &MockTelegramBot{
+		API:            api,
 		sentMessages:   make([]tgbotapi.MessageConfig, 0),
 		sentCallbacks:  make([]tgbotapi.CallbackConfig, 0),
 		messageCounter: 0,
 		updatesChan:    make(chan tgbotapi.Update),
 	}
+}
+
+func (m *MockTelegramBot) Send(c tgbotapi.Chattable) (tgbotapi.Message, error) {
+	switch msg := c.(type) {
+	case tgbotapi.MessageConfig:
+		m.RecordMessage(msg)
+		return tgbotapi.Message{
+			MessageID: m.messageCounter,
+			Chat:      &tgbotapi.Chat{ID: msg.ChatID},
+			Text:      msg.Text,
+		}, nil
+	case tgbotapi.CallbackConfig:
+		m.RecordCallback(msg)
+		return tgbotapi.Message{}, nil
+	}
+	return tgbotapi.Message{}, nil
 }
 
 func (m *MockTelegramBot) GetSentMessagesCount() int {
