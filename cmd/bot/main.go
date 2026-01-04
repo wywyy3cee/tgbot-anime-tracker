@@ -24,11 +24,19 @@ func main() {
 		}
 	}
 
+	appLogger.Info("RAILWAY_ENVIRONMENT_NAME: %s", os.Getenv("RAILWAY_ENVIRONMENT_NAME"))
+	appLogger.Info("RAILWAY_SERVICE_ID: %s", os.Getenv("RAILWAY_SERVICE_ID"))
+	appLogger.Info("RAILWAY_PROJECT_ID: %s", os.Getenv("RAILWAY_PROJECT_ID"))
+
 	cfg, err := config.Load()
 	if err != nil {
 		appLogger.Error("Failed to load config: %v", err)
 		log.Fatal(err)
 	}
+
+	appLogger.Info("Database URL: %s", cfg.DatabaseURL)
+	appLogger.Info("Redis URL: %s", cfg.RedisURL)
+	appLogger.Info("Shikimori URL: %s", cfg.ShikimoriURL)
 
 	appLogger.Info("Starting application...")
 	db, err := database.Connect(cfg.DatabaseURL, appLogger)
