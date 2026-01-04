@@ -2,22 +2,19 @@ package tests
 
 import (
 	"os"
-	"path/filepath"
+	"strconv"
 )
 
 const (
-	DefaultDBHost     = "db"
+	DefaultDBHost     = "localhost"
 	DefaultDBPort     = "5432"
 	DefaultDBUser     = "postgres"
 	DefaultDBPassword = "postgres"
 	DefaultDBName     = "anime_bot"
 	DefaultDBSSLMode  = "disable"
-
-	DefaultRedisHost = "redis"
-	DefaultRedisPort = "6379"
-	DefaultRedisDB   = 0
-
-	MigrationsPath = "./migrations"
+	DefaultRedisHost  = "redis"
+	DefaultRedisPort  = "6379"
+	DefaultRedisDB    = 0
 )
 
 type TestConfig struct {
@@ -34,16 +31,9 @@ type TestConfig struct {
 }
 
 func NewTestConfig() *TestConfig {
-	migrationsDir := getEnv("TEST_MIGRATIONS_DIR", "")
+	migrationsDir := os.Getenv("TEST_MIGRATIONS_DIR")
 	if migrationsDir == "" {
-		if _, err := os.Stat("./migrations"); err == nil {
-			migrationsDir = "./migrations"
-		} else if wd, err := os.Getwd(); err == nil {
-			migrationsDir = filepath.Join(wd, "migrations")
-			if _, err := os.Stat(migrationsDir); err != nil {
-				migrationsDir = "./migrations"
-			}
-		}
+		migrationsDir = "./migrations"
 	}
 
 	return &TestConfig{
@@ -61,15 +51,23 @@ func NewTestConfig() *TestConfig {
 }
 
 func (tc *TestConfig) GetDatabaseURL() string {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL != "" {
+		return dbURL
+	}
 	return "postgres://" + tc.DBUser + ":" + tc.DBPassword + "@" + tc.DBHost + ":" + tc.DBPort + "/" + tc.DBName + "?sslmode=" + tc.DBSSLMODE
 }
 
 func (tc *TestConfig) GetRedisURL() string {
-	return "redis://" + tc.RedisHost + ":" + tc.RedisPort + "/" + string(rune('0'+tc.RedisDB))
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL != "" {
+		return redisURL
+	}
+	return "redis://" + tc.RedisHost + ":" + tc.RedisPort + "/" + strconv.Itoa(tc.RedisDB)
 }
 
 func getEnv(key, defaultValue string) string {
-	if value, ok := os.LookupEnv(key); ok {
+	if value := os.Getenv(key); value != "" {
 		return value
 	}
 	return defaultValue
