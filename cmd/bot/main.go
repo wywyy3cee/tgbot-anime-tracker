@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/joho/godotenv"
 	"github.com/wywyy3cee/tgbot-anime-tracker/internal/cache"
@@ -16,9 +17,11 @@ import (
 func main() {
 	appLogger := logger.New()
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if os.Getenv("RAILWAY_ENVIRONMENT_NAME") == "" {
+		err := godotenv.Load()
+		if err != nil {
+			appLogger.Info(".env file not found, using environment variables")
+		}
 	}
 
 	cfg, err := config.Load()
