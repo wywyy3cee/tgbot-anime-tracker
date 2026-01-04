@@ -27,7 +27,6 @@ Thumbs.db
 /out/
 
 # Test files
-*.test
 *.out
 
 # Profiling files
