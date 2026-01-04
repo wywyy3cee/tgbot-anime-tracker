@@ -1,5 +1,5 @@
 services:
-  db: 
+  db:
     image: postgres:16
     restart: always
     environment:
@@ -11,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - db:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -19,7 +24,51 @@ services:
       - "6379:6379"
     volumes:
       - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile.init
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/anime_bot?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - .:/app
+      - go_modules:/go/pkg/mod
+    working_dir: /app
+    restart: no
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/anime_bot?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TEST_MIGRATIONS_DIR: /app/migrations
+    ports:
+      - "8080:8080"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c", "cd /app && go test github.com/wywyy3cee/tgbot-anime-tracker/tests/integration -run 'TestAnimeService|TestDatabase|TestRedis' -v && echo '' && echo '=== Tests passed, building bot ===' && go build -buildvcs=false -o bot ./cmd/bot && echo '=== Bot built, starting ===' && ./bot"]
+    working_dir: /app
+    volumes:
+      - .:/app
+      - go_modules:/go/pkg/mod
 
 volumes:
   db:
-  redis: 
+  redis:
+  go_modules:

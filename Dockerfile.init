@@ -1,0 +1,18 @@
+FROM golang:1.25-alpine
+
+RUN apk add --no-cache git
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN echo "=== Building ===" && \
+    go build -o bot ./cmd/bot && \
+    echo "Build successful" && \
+    echo "" && \
+    echo "=== Running unit tests ===" && \
+    go test ./internal/... -v && \
+    echo "=== Unit tests passed ==="
