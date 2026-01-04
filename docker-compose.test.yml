@@ -46,10 +46,13 @@ services:
     command: >
       sh -c "
         echo '=== Creating test database ===' &&
-        PGPASSWORD=postgres psql -h db -U postgres -d postgres -c 'DROP DATABASE IF EXISTS anime_bot_test;' &&
+        PGPASSWORD=postgres psql -h db -U postgres -d postgres -c 'DROP DATABASE IF EXISTS anime_bot_test;' 2>/dev/null || true &&
         PGPASSWORD=postgres psql -h db -U postgres -d postgres -c 'CREATE DATABASE anime_bot_test;' &&
         echo '=== Test database created ===' &&
         sleep 2 &&
+        echo '=== Running integration tests ===' &&
+        go test ./tests/integration/... -v -count=1 -timeout 5m &&
+        echo '=== Integration tests completed ===' &&
         echo '=== Running E2E tests ===' &&
         go test ./tests/e2e/... -v -count=1 -timeout 5m
       "
