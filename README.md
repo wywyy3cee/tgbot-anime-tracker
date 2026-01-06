@@ -47,6 +47,7 @@
 - Детали кэшируются на 24 часа (попадание в кэш ~85%)
 - Реальные запросы к Shikimori API: ~0.1 RPS (намного ниже лимита 5 запросов/сек)
 </details>
+
 #### 3. Объём дисковой системы
 ##### PostgreSQL (6 лет хранения, с учётом того, что количество пользователей возрастёт):
 
@@ -203,8 +204,9 @@ GET /api/animes/50 - Ожидаемое время: < 300 мс
 
 ## Тестирование
 Запуск тестирования и приложения:
+
 ```bash
-docker compose up -d
+docker compose up -d 
 docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
 ```
 
